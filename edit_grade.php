@@ -1,52 +1,50 @@
 <?php
-// Start the session to access user-related data
 session_start();
 
-// Redirect the user to the login page if they are not logged in
+// Check if the user is logged in, if not, redirect to the login page
 if (!isset($_SESSION['user_id'])) {
     header("Location: index.php");
     exit;
 }
 
-// Include the file that connects to the database
+// Include the database connection
 require_once 'db_connect.php';
 
-// If the grade ID is not provided, redirect back to the dashboard
+// Ensure an ID is provided for the grade record
 if (!isset($_GET['id']) || empty($_GET['id'])) {
     header("Location: dashboard.php");
     exit;
 }
 
-$gradeId = $_GET['id'];  // The ID of the grade record we need to edit
+$recordId = $_GET['id'];  // Store the grade record ID for later use
 $errorMessage = '';  // Variable to store error messages
 $successMessage = '';  // Variable to store success messages
 
+// Fetch the grade record based on the provided ID
 try {
-    // Prepare and execute the query to retrieve the grade record based on the ID
-    $stmt = $pdo->prepare("SELECT c.*, n.student_name 
-                          FROM course_table c 
-                          JOIN name_table n ON c.student_id = n.student_id 
-                          WHERE c.id = ?");
-    $stmt->execute([$gradeId]);
-    $gradeRecord = $stmt->fetch();
+    $query = $pdo->prepare("SELECT c.*, n.student_name 
+                            FROM course_table c 
+                            JOIN name_table n ON c.student_id = n.student_id 
+                            WHERE c.id = ?");
+    $query->execute([$recordId]);
+    $gradeRecord = $query->fetch();
     
-    // If the grade record doesn't exist, redirect back to the dashboard
     if (!$gradeRecord) {
         header("Location: dashboard.php");
         exit;
     }
 } catch (PDOException $e) {
-    $errorMessage = "Something went wrong: " . $e->getMessage();
+    $errorMessage = "Error fetching record: " . $e->getMessage();
 }
 
-// Handle the form submission to update the grades
+// Handle form submission to update grades
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $grade1 = $_POST['grade1'];
     $grade2 = $_POST['grade2'];
     $grade3 = $_POST['grade3'];
     $grade4 = $_POST['grade4'];
     
-    // Validate the grade inputs
+    // Validate the grades
     if (!is_numeric($grade1) || $grade1 < 0 || $grade1 > 100 ||
         !is_numeric($grade2) || $grade2 < 0 || $grade2 > 100 ||
         !is_numeric($grade3) || $grade3 < 0 || $grade3 > 100 ||
@@ -54,23 +52,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $errorMessage = "Grades must be numeric values between 0 and 100.";
     } else {
         try {
-            // Prepare and execute the query to update the grades in the database
-            $stmt = $pdo->prepare("UPDATE course_table 
-                                  SET grade1 = ?, grade2 = ?, grade3 = ?, grade4 = ? 
-                                  WHERE id = ?");
-            $stmt->execute([$grade1, $grade2, $grade3, $grade4, $gradeId]);
+            // Update the grade record in the database
+            $updateQuery = $pdo->prepare("UPDATE course_table 
+                                          SET grade1 = ?, grade2 = ?, grade3 = ?, grade4 = ? 
+                                          WHERE id = ?");
+            $updateQuery->execute([$grade1, $grade2, $grade3, $grade4, $recordId]);
             
             $successMessage = "Grade updated successfully!";
             
-            // Fetch the updated record to reflect changes on the page
-            $stmt = $pdo->prepare("SELECT c.*, n.student_name 
-                                  FROM course_table c 
-                                  JOIN name_table n ON c.student_id = n.student_id 
-                                  WHERE c.id = ?");
-            $stmt->execute([$gradeId]);
-            $gradeRecord = $stmt->fetch();
+            // Fetch the updated grade record to reflect changes
+            $query->execute([$recordId]);
+            $gradeRecord = $query->fetch();
         } catch (PDOException $e) {
-            $errorMessage = "Error updating the grade: " . $e->getMessage();
+            $errorMessage = "Error updating record: " . $e->getMessage();
         }
     }
 }
@@ -114,12 +108,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </div>
         </div>
 
-        <!-- Display any error messages -->
+        <!-- Display error message if any -->
         <?php if (!empty($errorMessage)): ?>
             <div class="alert alert-danger"><?php echo $errorMessage; ?></div>
         <?php endif; ?>
 
-        <!-- Display any success messages -->
+        <!-- Display success message if any -->
         <?php if (!empty($successMessage)): ?>
             <div class="alert alert-success"><?php echo $successMessage; ?></div>
         <?php endif; ?>
@@ -176,3 +170,4 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </div>
 </body>
 </html>
+
