@@ -1,56 +1,56 @@
 <?php
 session_start();
 
-// Check if the user is logged in, if not, redirect to login page
+// Check if user is logged in, if not, redirect to login page
 if (!isset($_SESSION['user_id'])) {
     header("Location: index.php");
     exit;
 }
 
-// Include database connection
+// Include the database connection
 require_once 'db_connect.php';
 
-// Function to calculate the final grade based on four grade components
-function computeFinalGrade($grade1, $grade2, $grade3, $grade4) {
+// Function to calculate the average of four grades
+function calculateAverageGrade($grade1, $grade2, $grade3, $grade4) {
     return round(($grade1 + $grade2 + $grade3 + $grade4) / 4);
 }
 
-// Function to determine the letter grade based on the final grade
-function determineLetterGrade($finalGrade) {
-    if ($finalGrade >= 90) return 'A+';
-    elseif ($finalGrade >= 85) return 'A';
-    elseif ($finalGrade >= 80) return 'A-';
-    elseif ($finalGrade >= 77) return 'B+';
-    elseif ($finalGrade >= 73) return 'B';
-    elseif ($finalGrade >= 70) return 'B-';
-    elseif ($finalGrade >= 67) return 'C+';
-    elseif ($finalGrade >= 63) return 'C';
-    elseif ($finalGrade >= 60) return 'C-';
-    elseif ($finalGrade >= 57) return 'D+';
-    elseif ($finalGrade >= 53) return 'D';
-    elseif ($finalGrade >= 50) return 'D-';
+// Function to get the corresponding letter grade based on the final average
+function determineLetterGrade($averageGrade) {
+    if ($averageGrade >= 90) return 'A+';
+    elseif ($averageGrade >= 85) return 'A';
+    elseif ($averageGrade >= 80) return 'A-';
+    elseif ($averageGrade >= 77) return 'B+';
+    elseif ($averageGrade >= 73) return 'B';
+    elseif ($averageGrade >= 70) return 'B-';
+    elseif ($averageGrade >= 67) return 'C+';
+    elseif ($averageGrade >= 63) return 'C';
+    elseif ($averageGrade >= 60) return 'C-';
+    elseif ($averageGrade >= 57) return 'D+';
+    elseif ($averageGrade >= 53) return 'D';
+    elseif ($averageGrade >= 50) return 'D-';
     else return 'F';
 }
 
-// Get the search parameter from the query string, if available
+// Get search parameter from the query string
 $searchQuery = isset($_GET['search']) ? $_GET['search'] : '';
 
-// Prepare SQL query to fetch student data along with their grades
+// Prepare SQL to fetch student data with their grades
 $query = "SELECT n.student_id, n.student_name, c.id AS course_row_id, c.course_code, 
-          c.grade1, c.grade2, c.grade3, c.grade4
+                 c.grade1, c.grade2, c.grade3, c.grade4
           FROM name_table n
           LEFT JOIN course_table c ON n.student_id = c.student_id
           WHERE 1=1";
 
-// If a search query is provided, include it in the WHERE clause
+// Add search condition if search query is provided
 if (!empty($searchQuery)) {
     $query .= " AND (n.student_id LIKE :search OR n.student_name LIKE :search OR c.course_code LIKE :search)";
 }
 
-// Order results by student ID
+// Order the results by student ID
 $query .= " ORDER BY n.student_id ASC";
 
-// Prepare and execute the SQL query
+// Prepare and execute the query
 $stmt = $pdo->prepare($query);
 
 if (!empty($searchQuery)) {
@@ -59,7 +59,7 @@ if (!empty($searchQuery)) {
 }
 
 $stmt->execute();
-$results = $stmt->fetchAll();
+$studentsData = $stmt->fetchAll();
 ?>
 
 <!DOCTYPE html>
@@ -123,34 +123,34 @@ $results = $stmt->fetchAll();
                     <tbody>
                         <?php
                         $previousStudentId = null;
-                        foreach ($results as $record):
-                            // Calculate the final grade based on individual grades
-                            $finalGrade = computeFinalGrade($record['grade1'], $record['grade2'], $record['grade3'], $record['grade4']);
+                        foreach ($studentsData as $student):
+                            // Calculate the final grade
+                            $finalGrade = calculateAverageGrade($student['grade1'], $student['grade2'], $student['grade3'], $student['grade4']);
                             $letterGrade = determineLetterGrade($finalGrade);
 
-                            // Check if the current row is for a new student
-                            $isNewStudent = $previousStudentId !== $record['student_id'];
-                            $previousStudentId = $record['student_id'];
+                            // Track whether this is a new student
+                            $isNewStudent = $previousStudentId !== $student['student_id'];
+                            $previousStudentId = $student['student_id'];
                         ?>
                         <tr>
-                            <td><?php echo htmlspecialchars($record['student_id']); ?></td>
-                            <td><?php echo htmlspecialchars($record['student_name']); ?></td>
-                            <td><?php echo htmlspecialchars($record['course_code']); ?></td>
-                            <td><?php echo htmlspecialchars($record['grade1']); ?></td>
-                            <td><?php echo htmlspecialchars($record['grade2']); ?></td>
-                            <td><?php echo htmlspecialchars($record['grade3']); ?></td>
-                            <td><?php echo htmlspecialchars($record['grade4']); ?></td>
+                            <td><?php echo htmlspecialchars($student['student_id']); ?></td>
+                            <td><?php echo htmlspecialchars($student['student_name']); ?></td>
+                            <td><?php echo htmlspecialchars($student['course_code']); ?></td>
+                            <td><?php echo htmlspecialchars($student['grade1']); ?></td>
+                            <td><?php echo htmlspecialchars($student['grade2']); ?></td>
+                            <td><?php echo htmlspecialchars($student['grade3']); ?></td>
+                            <td><?php echo htmlspecialchars($student['grade4']); ?></td>
                             <td><?php echo $finalGrade; ?></td>
                             <td><?php echo $letterGrade; ?></td>
                             <td>
-                                <a href="edit_grade.php?id=<?php echo $record['course_row_id']; ?>" class="btn btn-sm btn-primary">Edit</a>
+                                <a href="edit_grade.php?id=<?php echo $student['course_row_id']; ?>" class="btn btn-sm btn-primary">Edit</a>
                                 <button type="button" class="btn btn-sm btn-danger" 
-                                        onclick="deleteConfirmation(<?php echo $record['course_row_id']; ?>)">Delete</button>
+                                        onclick="confirmDeletion(<?php echo $student['course_row_id']; ?>)">Delete</button>
                             </td>
                         </tr>
                         <?php endforeach; ?>
 
-                        <?php if (empty($results)): ?>
+                        <?php if (empty($studentsData)): ?>
                         <tr>
                             <td colspan="10" class="text-center">No records found.</td>
                         </tr>
@@ -162,10 +162,9 @@ $results = $stmt->fetchAll();
     </div>
 
     <script>
-        // Function to confirm deletion of a grade record
-        function deleteConfirmation(courseId) {
+        function confirmDeletion(recordId) {
             if (confirm('Are you sure you want to delete this grade record?')) {
-                window.location.href = 'delete_grade.php?id=' + courseId;
+                window.location.href = 'delete_grade.php?id=' + recordId;
             }
         }
     </script>
